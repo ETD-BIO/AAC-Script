@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.1
+// @version      1.5.2
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
+// @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
+// @downloadURL  https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
 // @match        https://biomerieux--agile.sandbox.lightning.force.com/lightning/r/agf__ADM_Work__c/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=force.com
 // @grant        none
