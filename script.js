@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.3
+// @version      1.5.4
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
 // @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
@@ -53,23 +53,15 @@
     }
 
     function createGithubPullRequestLinks(node) {
-        //console.log('innerText : >' + node.innerText + '<');
         if (node.innerText) {
-            const prs = node.innerText.split(",");
-            var text = '';
-            var cnt = 1;
+            const prs = node.innerText.match(/[0-9]{4}/g);
+            const prs2 = [];
             prs.sort();
-            prs.forEach((pr) => {
-                let pr_clean = pr.replace("#", "");
-                let url = 'https://github.com/biomerieux/sfdx/pull/'+pr_clean;
-                window.pr_url = url;
-                text += '<a target="_blank" href="'+url+'">#'+pr_clean+'</a>';
-                if (cnt < prs.length) {
-                    text += ' - ';
-                }
-                cnt++;
+            prs.forEach(pr => {
+                window.pr_url = 'https://github.com/biomerieux/sfdx/pull/'+pr;
+                prs2.push('<a target="_blank" href="'+window.pr_url+'">#'+pr+'</a>');
             });
-            node.innerHTML = text;
+            node.innerHTML = prs2.join(' - ');
         } else {
             window.pr_url = undefined;
         }
