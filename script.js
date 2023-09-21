@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.5
+// @version      1.5.6
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
 // @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
@@ -14,10 +14,14 @@
 (function () {
     'use script';
 
-    var pr_url = '';
-    var onetime = false;
-    var docu = document;
-    var currentTab = 'div.split-right > section[aria-expanded="true"]';
+    const MAX_ATTEMPTS = 20;
+    const TIMEOUT = 100;
+    const CURRENT_TAB = 'div.split-right > section[aria-expanded="true"]';
+    const SFDX_PULL = 'https://github.com/biomerieux/sfdx/pull/';
+
+    let lastPR;
+    let onetime = false;
+    let docu = document;
 
     runWhenReady(lookForHeader, showScriptDesc);
 
@@ -29,58 +33,53 @@
     }
 
     function lookForWorkName() {
-        return querySelect(currentTab + ' lightning-formatted-text:nth(1)');
+        return querySelect(CURRENT_TAB + ' lightning-formatted-text:nth(1)');
     }
 
     function lookForPullRequest() {
-        const recordType = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
-        var sectionNb = recordType?.innerText == 'Bug' ? 2 : 3;
-        return querySelect(currentTab + ' flexipage-component2:nth(1) layout-section:nth('+sectionNb+') layout-row:nth(3) layout-item:nth(1) lightning-formatted-text');
+        const recordType = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
+        const sectionNb = recordType?.innerText == 'Bug' ? 2 : 3;
+        return querySelect(CURRENT_TAB + ` flexipage-component2:nth(1) layout-section:nth(${sectionNb}) layout-row:nth(3) layout-item:nth(1) lightning-formatted-text`);
     }
 
     function querySelect(query) {
-        return docu.querySelector(query
-            .replaceAll(":nth", ":nth-of-type")
-            .replaceAll("layout", "records-record-layout"));
+        return docu.querySelector(query.replace(/:nth/g, ':nth-of-type').replace(/layout/g, 'records-record-layout'));
     }
 
     /*
     Action Functions
     */
     function showScriptDesc(node) {
-        const desc = 'Feature Branch Name Generator CTRL + SHIFT + F&#10;';
-        node.innerHTML += " <span title='"+desc+"' style='background-color:green;color:white;border-radius:20px;padding:0 5px 0 5px;'>Boosted</span>";
+        const desc =
+              'Feature Branch Name Generator CTRL + SHIFT + F\n' +
+              'Open last PullRequest CTRL + SHIFT + P';
+        node.innerHTML += ` <span title='${desc}' style='background-color:green;color:white;border-radius:20px;padding:0 5px 0 5px;'>Boosted</span>`;
     }
 
     function createGithubPullRequestLinks(node) {
         if (node.innerText) {
-            const prs = node.innerText.match(/[0-9]{4}/g);
-            const prs2 = [];
-            prs.sort();
-            prs.forEach(pr => {
-                window.pr_url = 'https://github.com/biomerieux/sfdx/pull/'+pr;
-                prs2.push('<a target="_blank" href="'+window.pr_url+'">#'+pr+'</a>');
-            });
-            node.innerHTML = prs2.join(' - ');
-        } else {
-            window.pr_url = undefined;
+            const prs = node.innerText.match(/\d{4}/g);
+            if (prs) {
+                prs.sort();
+                lastPR = prs[prs.length-1];
+                node.innerHTML = prs.map(pr => `<a target='_blank' href='${SFDX_PULL}${pr}'>#${pr}</a>`).join(' - ');
+            }
         }
     }
 
     function genFeatureBranchName(node) {
-        const recordType = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
-        const assigned = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(2) p:nth(2) records-hoverable-link span');
+        const recordType = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
+        const assigned = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(2) p:nth(2) records-hoverable-link span');
         const prType = recordType?.innerText == 'Bug' ? 'fix' : 'feature';
+        const workName = cleanWorkName(node).toLowerCase();
         const acronym = assigned?.innerText.match(/\b\w/g).join('').toLowerCase();
-        var string = prType + "/cpq-" + cleanWorkName(node).toLowerCase() + "-" + acronym;
-        var data = [new ClipboardItem({"text/plain":new Blob([string],{type:"text/plain"})})];
-        navigator.clipboard.write(data).then(
-            function () {
-                alert(string+"\n\nCopied to clipboard successfully!");
-            },
-            function () {
-                alert(string+"\n\nUnable to write to clipboard. :-(");
-            }
+        const string = `${prType}/cpq-${workName}-${acronym}`;
+
+        // Copy to clipboard
+        const clipboardData = [new ClipboardItem({"text/plain":new Blob([string],{type:"text/plain"})})];
+        navigator.clipboard.write(clipboardData).then(
+            () => alert(`${string}\n\nCopied to clipboard successfully!`),
+            () => alert(`${string}\n\nUnable to write to clipboard. :-(`)
         );
     }
 
@@ -88,31 +87,28 @@
         return node.innerText.replace(/[^a-z0-9 -]/gi,' ').replace(/ +/g, '-');
     }
 
-    // Run One time
     function runOneTime(callback1, callback2, bool) {
         if(!bool) {
-            //console.log('RUN ONE TIME !');
             onetime = !onetime;
             runWhenReady(callback1, callback2);
         }
     }
 
-    // Run action function when the element in page is found
     function runWhenReady(queryFunc, actionFunc) {
-        var numAttempts = 0;
-        var tryNow = function() {
-            var elem = queryFunc();
+        let ctn = 0;
+        function tryNow() {
+            const elem = queryFunc();
             if (elem) {
                 actionFunc(elem);
             } else {
-                numAttempts++;
-                if (numAttempts >= 20) {
-                    console.log('Giving up \'runWhenReady\' after 20 attempts.');
+                ctn++;
+                if (ctn >= MAX_ATTEMPTS) {
+                    console.warn(`Giving up 'runWhenReady' after ${MAX_ATTEMPTS} attempts.`);
                 } else {
-                    setTimeout(tryNow, 100);
+                    setTimeout(tryNow, TIMEOUT);
                 }
             }
-        };
+        }
         tryNow();
     }
 
@@ -129,14 +125,17 @@
 
     window.addEventListener("keydown", (e) => {
         //console.log('KEY :' + e.key);
-        if (e.ctrlKey && e.shiftKey) { // CTRL + SHIFT
+        if (e.ctrlKey && e.shiftKey) {
             switch (e.key) {
                 case 'F': // for Feature
                     runWhenReady(lookForWorkName, genFeatureBranchName);
                     break;
                 case 'P': // for PullRequest
-                    if (window.pr_url) window.open(window.pr_url, '_blank').focus();
-                    else alert('No PR link !');
+                    if (lastPR) {
+                        window.open(SFDX_PULL+lastPR);
+                    } else {
+                        alert('No PR link !');
+                    }
                     break;
             }
         }
