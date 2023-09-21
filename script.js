@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.4
+// @version      1.5.5
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
 // @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
@@ -17,7 +17,7 @@
     var pr_url = '';
     var onetime = false;
     var docu = document;
-    var ini = "etd"; // initials, put at the end of the feature branch name
+    var currentTab = 'div.split-right > section[aria-expanded="true"]';
 
     runWhenReady(lookForHeader, showScriptDesc);
 
@@ -25,23 +25,23 @@
     Query Functions
     */
     function lookForHeader() {
-        return docu ? docu.querySelector(reformat('#oneHeader > div:nth(1) > div > span')) : false;
+        return docu ? querySelect('#oneHeader > div:nth(1) > div > span') : false;
     }
 
-    function lookForWorkName(currentTab) {
-        return docu.querySelector(currentTab + reformat(' lightning-formatted-text:nth(1)'));
+    function lookForWorkName() {
+        return querySelect(currentTab + ' lightning-formatted-text:nth(1)');
     }
 
-    function lookForPullRequest(currentTab) {
-        const recordType = docu.querySelector('div.split-right > section[aria-expanded="true"]' + reformat(' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)'));
+    function lookForPullRequest() {
+        const recordType = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
         var sectionNb = recordType?.innerText == 'Bug' ? 2 : 3;
-        return docu.querySelector(currentTab + reformat(' flexipage-component2:nth(1) layout-section:nth('+sectionNb+') layout-row:nth(3) layout-item:nth(1) lightning-formatted-text'));
+        return querySelect(currentTab + ' flexipage-component2:nth(1) layout-section:nth('+sectionNb+') layout-row:nth(3) layout-item:nth(1) lightning-formatted-text');
     }
 
-    function reformat(query) {
-        return query
+    function querySelect(query) {
+        return docu.querySelector(query
             .replaceAll(":nth", ":nth-of-type")
-            .replaceAll("layout", "records-record-layout");
+            .replaceAll("layout", "records-record-layout"));
     }
 
     /*
@@ -68,9 +68,11 @@
     }
 
     function genFeatureBranchName(node) {
-        const recordType = docu.querySelector('div.split-right > section[aria-expanded="true"]' + reformat(' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)'));
+        const recordType = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
+        const assigned = querySelect(currentTab + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(2) p:nth(2) records-hoverable-link span');
         const prType = recordType?.innerText == 'Bug' ? 'fix' : 'feature';
-        var string = prType + "/cpq-" + cleanWorkName(node).toLowerCase() + "-" + ini;
+        const acronym = assigned?.innerText.match(/\b\w/g).join('').toLowerCase();
+        var string = prType + "/cpq-" + cleanWorkName(node).toLowerCase() + "-" + acronym;
         var data = [new ClipboardItem({"text/plain":new Blob([string],{type:"text/plain"})})];
         navigator.clipboard.write(data).then(
             function () {
@@ -82,26 +84,8 @@
         );
     }
 
-    String.prototype.replaceAllIn = function (array, substitutes) {
-        var str = this;
-        if(array.length != substitutes.length) {
-            throw 'Check cleanWorkName function : array do not corespond to substitutes !';
-        }
-        let i = 0;
-        array.forEach((chars) => {
-            chars.split('').forEach((char) => {
-                if (char == ' ') {
-                    str = str.replace(/\s+/g, ' ');
-                }
-                str = str.replaceAll(char, substitutes[i]);
-            });
-            i++;
-        });
-        return str;
-    };
-
     function cleanWorkName(node) {
-        return node.innerText.trim().replaceAllIn([':()"\',&.-','_ '], ['','-']).replaceAll('%', 'percent');
+        return node.innerText.replace(/[^a-z0-9 -]/gi,' ').replace(/ +/g, '-');
     }
 
     // Run One time
@@ -117,7 +101,7 @@
     function runWhenReady(queryFunc, actionFunc) {
         var numAttempts = 0;
         var tryNow = function() {
-            var elem = queryFunc('div.split-right > section[aria-expanded="true"]'); // Target the current tab and not the all page
+            var elem = queryFunc();
             if (elem) {
                 actionFunc(elem);
             } else {
@@ -144,16 +128,16 @@
     });
 
     window.addEventListener("keydown", (e) => {
-        var evtobj = window.event ? event : e;
-        //console.log('KEY_CODE :' + evtobj.keyCode);
-        if (evtobj.ctrlKey && evtobj.shiftKey) { // CTRL + SHIFT
-            evtobj.returnValue = false;
-            if (evtobj.keyCode == 70) { // + F (for Feature)
-                runWhenReady(lookForWorkName, genFeatureBranchName);
-            }
-            if (evtobj.keyCode == 80) { // + P (for PullRequest)
-                if (window.pr_url) window.open(window.pr_url, '_blank').focus();
-                else alert('No PR link !');
+        //console.log('KEY :' + e.key);
+        if (e.ctrlKey && e.shiftKey) { // CTRL + SHIFT
+            switch (e.key) {
+                case 'F': // for Feature
+                    runWhenReady(lookForWorkName, genFeatureBranchName);
+                    break;
+                case 'P': // for PullRequest
+                    if (window.pr_url) window.open(window.pr_url, '_blank').focus();
+                    else alert('No PR link !');
+                    break;
             }
         }
     });
