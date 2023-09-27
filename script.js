@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.6
+// @version      1.5.7
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
 // @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
@@ -15,7 +15,7 @@
     'use script';
 
     const MAX_ATTEMPTS = 20;
-    const TIMEOUT = 100;
+    const TIMEOUT = 250;
     const CURRENT_TAB = 'div.split-right > section[aria-expanded="true"]';
     const SFDX_PULL = 'https://github.com/biomerieux/sfdx/pull/';
 
@@ -57,7 +57,7 @@
     }
 
     function createGithubPullRequestLinks(node) {
-        if (node.innerText) {
+        function displayLinks() {
             const prs = node.innerText.match(/\d{4}/g);
             if (prs) {
                 prs.sort();
@@ -65,6 +65,7 @@
                 node.innerHTML = prs.map(pr => `<a target='_blank' href='${SFDX_PULL}${pr}'>#${pr}</a>`).join(' - ');
             }
         }
+        runWhenReady(node.innerText, displayLinks);
     }
 
     function genFeatureBranchName(node) {
@@ -83,27 +84,18 @@
         );
     }
 
-    function cleanWorkName(node) {
-        return node.innerText.replace(/[^a-z0-9 -]/gi,' ').replace(/ +/g, '-');
-    }
+    const cleanWorkName = node => node.innerText.replace(/[^a-z0-9 -]/gi,' ').trim().replace(/ +/g, '-');
 
-    function runOneTime(callback1, callback2, bool) {
-        if(!bool) {
-            onetime = !onetime;
-            runWhenReady(callback1, callback2);
-        }
-    }
-
-    function runWhenReady(queryFunc, actionFunc) {
+    function runWhenReady(selector, callback) {
         let ctn = 0;
         function tryNow() {
-            const elem = queryFunc();
+            const elem = typeof selector == 'function' ? selector() : selector;
             if (elem) {
-                actionFunc(elem);
+                callback(elem);
             } else {
-                ctn++;
-                if (ctn >= MAX_ATTEMPTS) {
-                    console.warn(`Giving up 'runWhenReady' after ${MAX_ATTEMPTS} attempts.`);
+                if (++ctn >= MAX_ATTEMPTS) {
+                    const callbackName = callback.toString().match(/(?<=function ).*(?=\()/g);
+                    console.warn(`Failed to run '${callbackName}' after ${MAX_ATTEMPTS} attempts.`);
                 } else {
                     setTimeout(tryNow, TIMEOUT);
                 }
@@ -113,9 +105,12 @@
     }
 
     // Refresh the DOM in order to catch the good work name
-    document.addEventListener('DOMSubtreeModified', (e) => {
+    docu.addEventListener('DOMSubtreeModified', (e) => {
         docu = e.target.ownerDocument.documentElement;
-        runOneTime(lookForPullRequest, createGithubPullRequestLinks, onetime);
+        if(!onetime) {
+            runWhenReady(lookForPullRequest, createGithubPullRequestLinks);
+            onetime = !onetime;
+        }
     });
 
     // Listen keyboard and mouse events
@@ -124,7 +119,6 @@
     });
 
     window.addEventListener("keydown", (e) => {
-        //console.log('KEY :' + e.key);
         if (e.ctrlKey && e.shiftKey) {
             switch (e.key) {
                 case 'F': // for Feature
@@ -140,5 +134,4 @@
             }
         }
     });
-    console.log('AAC-Script loaded');
 })();
