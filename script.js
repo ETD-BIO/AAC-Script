@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AAC-Script
 // @namespace    http://tampermonkey.net/
-// @version      1.5.7
+// @version      1.5.8
 // @description  adds usefull tools to the Agile Accelerator Console
 // @author       Emmanuel Turbet-Delof
 // @updateURL    https://github.com/ETD-BIO/AAC-Script/raw/master/script.js
@@ -17,6 +17,7 @@
     const MAX_ATTEMPTS = 20;
     const TIMEOUT = 250;
     const CURRENT_TAB = 'div.split-right > section[aria-expanded="true"]';
+    const HEADER_DETAILS = 'flexipage-component2:nth(1) records-highlights2 > div > div:nth(2)';
     const SFDX_PULL = 'https://github.com/biomerieux/sfdx/pull/';
 
     let lastPR;
@@ -33,13 +34,13 @@
     }
 
     function lookForWorkName() {
-        return querySelect(CURRENT_TAB + ' lightning-formatted-text:nth(1)');
+        return querySelect(`${CURRENT_TAB} lightning-formatted-text:nth(1)`);
     }
 
     function lookForPullRequest() {
-        const recordType = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
+        const recordType = querySelect(`${CURRENT_TAB} ${HEADER_DETAILS} records-highlights-details-item:nth(6) p:nth(2)`);
         const sectionNb = recordType?.innerText == 'Bug' ? 2 : 3;
-        return querySelect(CURRENT_TAB + ` flexipage-component2:nth(1) layout-section:nth(${sectionNb}) layout-row:nth(3) layout-item:nth(1) lightning-formatted-text`);
+        return querySelect(`${CURRENT_TAB} flexipage-component2:nth(1) layout-section:nth(${sectionNb}) layout-row:nth(3) layout-item:nth(1) lightning-formatted-text`);
     }
 
     function querySelect(query) {
@@ -69,8 +70,8 @@
     }
 
     function genFeatureBranchName(node) {
-        const recordType = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(6) p:nth(2)');
-        const assigned = querySelect(CURRENT_TAB + ' flexipage-component2:nth(1) records-highlights2 > div > div:nth(2) records-highlights-details-item:nth(2) p:nth(2) records-hoverable-link span');
+        const recordType = querySelect(`${CURRENT_TAB} ${HEADER_DETAILS} records-highlights-details-item:nth(6) p:nth(2)`);
+        const assigned = querySelect(`${CURRENT_TAB} ${HEADER_DETAILS} records-highlights-details-item:nth(2) p:nth(2) records-hoverable-link span`);
         const prType = recordType?.innerText == 'Bug' ? 'fix' : 'feature';
         const workName = cleanWorkName(node).toLowerCase();
         const acronym = assigned?.innerText.match(/\b\w/g).join('').toLowerCase();
@@ -84,7 +85,7 @@
         );
     }
 
-    const cleanWorkName = node => node.innerText.replace(/[^a-z0-9 -]/gi,' ').trim().replace(/ +/g, '-');
+    const cleanWorkName = node => node.innerText.replace(/[^a-z0-9 ]/gi,' ').trim().replace(/ +/g, '-');
 
     function runWhenReady(selector, callback) {
         let ctn = 0;
