@@ -1,0 +1,23 @@
+{
+  "name": "aac-script",
+  "version": "1.5.8",
+  "description": "adds usefull tools to the Agile Accelerator Console",
+  "main": "script.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETD-BIO/AAC-Script.git"
+  },
+  "author": "Emmanuel Turbet-Delof",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ETD-BIO/AAC-Script/issues"
+  },
+  "homepage": "https://github.com/ETD-BIO/AAC-Script#readme",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "puppeteer": "^21.3.8"
+  }
+}
